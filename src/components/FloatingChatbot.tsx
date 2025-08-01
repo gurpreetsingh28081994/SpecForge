@@ -4,6 +4,8 @@ import React, {
   useState,
 } from 'react';
 
+import OptionBubbles from './OptionBubbles';
+
 interface Message {
 	id: string;
 	text: string;
@@ -15,10 +17,118 @@ interface FloatingChatbotProps {
 	onRequirementsRefined: (requirements: string) => void;
 }
 
+const BUSINESS_PROCESSES = [
+	"ADDON_MANAGEMENT",
+	"TARIFF_CHANGE",
+	"CONTRACT_PROLONGATION",
+	"ACQUISITION",
+	"PREPAID_TO_POSTPAID_MIGRATION",
+	"E_SIM_ACTIVATION",
+];
+
+const CHANNELS = [
+	"ONE_APP",
+	"ONE_SHOP",
+	"ONE_TV",
+	"ONE_APP_WEB",
+	"YOUNG_APP",
+	"MAVI",
+	"MOM",
+	"AVIA",
+	"B2B_PORTAL",
+	"PHOENIX",
+	"TVPP",
+	"THOP",
+	"THOP_PSGATE",
+	"B2B_STD_ASSISTED",
+];
+
+const DEVICE_TYPES = ["FIXED", "MOBILE", "OTT"];
+
+function saveToSession(key: string, value: string) {
+	sessionStorage.setItem(key, value);
+}
+
+function getFromSession(key: string) {
+	return sessionStorage.getItem(key);
+}
+
+async function handleInitialApiCall(deviceTypeValue: string) {
+	// Compose all data from session storage
+	const bp = getFromSession("businessProcess");
+	const ch = getFromSession("channel");
+	const dt = deviceTypeValue || getFromSession("deviceType");
+	if (!bp || !ch || !dt) return;
+	setIsLoading(true);
+	try {
+		const aiAgentUrl = import.meta.env.VITE_AI_AGENT_URL as string;
+		if (!aiAgentUrl)
+			throw new Error(
+				"VITE_AI_AGENT_URL environment variable is not set"
+			);
+		const endpointUrl = aiAgentUrl.endsWith("/ask")
+			? aiAgentUrl
+			: `${aiAgentUrl}/ask`;
+		const response = await fetch(endpointUrl, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				user_query: `Business Process: ${bp}\nChannel: ${ch}\nDevice Type: ${dt}`,
+				agent_role: "You are an expert Requirements Analyst and Product Owner responsible for transforming a raw idea into a refined, ready-to-implement user requirement, aligned with business goals and system architecture.",
+			}),
+		});
+		if (!response.ok) throw new Error("Failed to get response");
+		const data = await response.json();
+		let formattedResponse =
+			data.response ||
+			data.message ||
+			data.content ||
+			"No response received";
+		const botMessage = {
+			id: (Date.now() + 1).toString(),
+			text: formattedResponse,
+			sender: "bot",
+			timestamp: new Date(),
+		};
+		setMessages((prev) => [...prev, botMessage]);
+		if (data.suggestions && data.suggestions.length > 0) {
+			const refinedRequirements =
+				data.suggestions.join("\n\n");
+			onRequirementsRefined(refinedRequirements);
+		} else if (
+			(data.response && data.response.includes("ready")) ||
+			data.response.includes("final")
+		) {
+			onRequirementsRefined(data.response);
+		}
+	} catch (error) {
+		console.error("Error sending message:", error);
+		const errorMessage = {
+			id: (Date.now() + 1).toString(),
+			text: "I'm sorry, I'm having trouble connecting to the AI Requirements Assistant service. Please check if the service is running and try again.",
+			sender: "bot",
+			timestamp: new Date(),
+		};
+		setMessages((prev) => [...prev, errorMessage]);
+	} finally {
+		setIsLoading(false);
+	}
+}
+
 export const FloatingChatbot: React.FC<FloatingChatbotProps> = ({
 	onRequirementsRefined,
 }) => {
 	const [isOpen, setIsOpen] = useState(false);
+	const [frontendStep, setFrontendStep] = useState<number>(0); // 0: business process, 1: channel, 2: device type, 3: API
+	const [businessProcess, setBusinessProcess] = useState<string | null>(
+		getFromSession("businessProcess")
+	);
+	const [channel, setChannel] = useState<string | null>(
+		getFromSession("channel")
+	);
+	const [deviceType, setDeviceType] = useState<string | null>(
+		getFromSession("deviceType")
+	);
 	const [conversationStep, setConversationStep] = useState<
 		"understanding" | "scope" | "mapping" | "refinement" | "final"
 	>("understanding");
@@ -76,6 +186,9 @@ Please describe your business goal in detail.`,
 	}, [messages, shouldAutoScroll]);
 
 	const sendMessage = async (text: string) => {
+		// Only allow free text after frontendStep >= 3
+		if (frontendStep < 3) return;
+
 		if (!text.trim()) return;
 
 		const userMessage: Message = {
@@ -226,6 +339,87 @@ List unknowns, risks, or validation needs
 	return (
 		<>
 			{/* Floating Chat Button */}
+			{/* Option Bubbles for first 3 steps */}
+			{isOpen && frontendStep < 3 && (
+				<div className="fixed bottom-24 right-6 z-50 w-[480px] bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 flex flex-col items-center">
+					<h3 className="font-semibold text-lg mb-2">
+						{frontendStep === 0
+							? "Step 1: Select Business Process"
+							: frontendStep === 1
+							? "Step 2: Select Channel"
+							: "Step 3: Select Device Type"}
+					</h3>
+					<p className="text-sm text-gray-600 mb-4">
+						{frontendStep === 0 &&
+							"Please select the business process relevant to your requirement."}
+						{frontendStep === 1 &&
+							"Please select the channel for this requirement."}
+						{frontendStep === 2 &&
+							"Please select the device type for this requirement."}
+					</p>
+					<OptionBubbles
+						options={
+							frontendStep === 0
+								? BUSINESS_PROCESSES
+								: frontendStep ===
+								  1
+								? CHANNELS
+								: DEVICE_TYPES
+						}
+						onSelect={(option) => {
+							if (
+								frontendStep ===
+								0
+							) {
+								setBusinessProcess(
+									option
+								);
+								saveToSession(
+									"businessProcess",
+									option
+								);
+								setFrontendStep(
+									1
+								);
+							} else if (
+								frontendStep ===
+								1
+							) {
+								setChannel(
+									option
+								);
+								saveToSession(
+									"channel",
+									option
+								);
+								setFrontendStep(
+									2
+								);
+							} else if (
+								frontendStep ===
+								2
+							) {
+								setDeviceType(
+									option
+								);
+								saveToSession(
+									"deviceType",
+									option
+								);
+								setFrontendStep(
+									3
+								);
+								// Now call API with all data
+								handleInitialApiCall(
+									option
+								);
+							}
+						}}
+						disabled={isLoading}
+					/>
+				</div>
+			)}
+
 			<button
 				onClick={() => setIsOpen(!isOpen)}
 				className={`fixed bottom-6 right-6 z-50 p-4 rounded-full shadow-lg transition-all duration-300 ${
@@ -271,7 +465,7 @@ List unknowns, risks, or validation needs
 			</button>
 
 			{/* Floating Chat Window */}
-			{isOpen && (
+			{isOpen && frontendStep >= 3 && (
 				<div className="fixed bottom-24 right-6 z-40 w-[480px] h-[600px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden">
 					{/* Header */}
 					<div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 rounded-t-2xl">
@@ -473,7 +667,9 @@ List unknowns, risks, or validation needs
 								placeholder="Type your message..."
 								className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
 								disabled={
-									isLoading
+									isLoading ||
+									frontendStep <
+										3
 								}
 							/>
 							<button
