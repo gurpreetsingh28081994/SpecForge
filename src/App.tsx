@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Header } from './components/Header';
+import { LandingPage } from './components/LandingPage';
 import { FileUpload } from './components/FileUpload';
 import { TextInput } from './components/TextInput';
 import { ResultsDisplay } from './components/ResultsDisplay';
@@ -14,6 +15,7 @@ import { ArchitectureOutput } from './types/architecture';
 import { TestingOutput } from './types/testing';
 
 function App() {
+  const [showLandingPage, setShowLandingPage] = useState(true);
   const [results, setResults] = useState<JiraOutput | null>(null);
   const [architectureResults, setArchitectureResults] = useState<ArchitectureOutput | null>(null);
   const [testingResults, setTestingResults] = useState<TestingOutput | null>(null);
@@ -97,12 +99,29 @@ function App() {
     setIsLoading(false);
   };
 
+  const handleGetStarted = () => {
+    setShowLandingPage(false);
+  };
+
+  const handleRequirementsRefined = (requirements: string) => {
+    setShowLandingPage(false);
+    // Pre-fill the text input with refined requirements
+    // This will be handled by the TextInput component
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
-      
-      <main className="container mx-auto px-6 py-8">
-        {!results && !architectureResults && !testingResults ? (
+      {showLandingPage ? (
+        <LandingPage 
+          onGetStarted={handleGetStarted}
+          onRequirementsRefined={handleRequirementsRefined}
+        />
+      ) : (
+        <>
+          <Header onBackToLanding={() => setShowLandingPage(true)} />
+          
+          <main className="container mx-auto px-6 py-8">
+            {!results && !architectureResults && !testingResults ? (
           <div className="max-w-4xl mx-auto">
             {/* Introduction */}
             <div className="text-center mb-8">
@@ -352,6 +371,8 @@ function App() {
           </div>
         )}
       </main>
+        </>
+      )}
     </div>
   );
 }
