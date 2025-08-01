@@ -33,7 +33,16 @@ export const ArchitectureDisplay: React.FC<ArchitectureDisplayProps> = ({ result
     URL.revokeObjectURL(url);
   };
 
-  const getComponentIcon = (type: string) => {
+  const getComponentIcon = (type: string, icon?: string) => {
+    if (icon) {
+      switch (icon) {
+        case 'globe': return <Globe className="w-4 h-4" />;
+        case 'server': return <Server className="w-4 h-4" />;
+        case 'database': return <Database className="w-4 h-4" />;
+        case 'layers': return <Layers className="w-4 h-4" />;
+        default: return <Server className="w-4 h-4" />;
+      }
+    }
     switch (type) {
       case 'frontend': return <Globe className="w-4 h-4" />;
       case 'backend': return <Server className="w-4 h-4" />;
@@ -94,7 +103,7 @@ export const ArchitectureDisplay: React.FC<ArchitectureDisplayProps> = ({ result
             <div key={index} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
               <div className="flex items-center space-x-3 mb-2">
                 <div className={`p-2 rounded-lg ${getComponentColor(component.type)}`}>
-                  {getComponentIcon(component.type)}
+                  {getComponentIcon(component.type, component.icon)}
                 </div>
                 <div>
                   <h5 className="font-medium text-gray-800">{component.name}</h5>
@@ -162,9 +171,21 @@ export const ArchitectureDisplay: React.FC<ArchitectureDisplayProps> = ({ result
           </h4>
         </div>
         <div className="p-4">
-          <pre className="bg-gray-50 rounded p-4 text-sm overflow-x-auto">
-            <code>{diagramFormat === 'mermaid' ? diagram.mermaidCode : diagram.plantUmlCode}</code>
-          </pre>
+          {diagramFormat === 'mermaid' && !diagram.mermaidCode && (
+            <div className="text-red-600 bg-red-50 rounded p-4 mb-2">
+              No Mermaid diagram available for this architecture, only PlantUML is provided.
+            </div>
+          )}
+          {diagramFormat === 'plantuml' && !diagram.plantUmlCode && (
+            <div className="text-red-600 bg-red-50 rounded p-4 mb-2">
+              No PlantUML diagram available for this architecture, only Mermaid.js is provided.
+            </div>
+          )}
+          {(diagramFormat === 'mermaid' && diagram.mermaidCode) || (diagramFormat === 'plantuml' && diagram.plantUmlCode) ? (
+            <pre className="bg-gray-50 rounded p-4 text-sm overflow-x-auto">
+              <code>{diagramFormat === 'mermaid' ? diagram.mermaidCode : diagram.plantUmlCode}</code>
+            </pre>
+          ) : null}
         </div>
       </div>
 

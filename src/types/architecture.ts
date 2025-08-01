@@ -12,6 +12,7 @@ export interface ArchitectureComponent {
   description: string;
   technologies: string[];
   connections: string[];
+  icon?: string;
 }
 
 export interface ArchitectureDiagram {

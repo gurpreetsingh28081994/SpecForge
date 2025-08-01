@@ -332,16 +332,23 @@ export class ArchitectureAnalyzer {
     let mermaid = 'graph TD\n';
     
     components.forEach(component => {
-      const shape = this.getMermaidShape(component.type);
-      mermaid += `    ${component.id}${shape}${component.name}${shape.split('[')[1]}\n`;
+      const [left, right] = this.getMermaidShape(component.type);
+      const nodeId = component.id.replace(/-/g, '_');
+      if (component.type === 'external') {
+        mermaid += `    ${nodeId}[\"${component.name}\"]\n`;
+      } else {
+        mermaid += `    ${nodeId}${left}${component.name}${right}\n`;
+      }
     });
 
     mermaid += '\n';
 
     components.forEach(component => {
+      const fromId = component.id.replace(/-/g, '_');
       component.connections.forEach(connection => {
+        const toId = connection.replace(/-/g, '_');
         if (components.find(c => c.id === connection)) {
-          mermaid += `    ${component.id} --> ${connection}\n`;
+          mermaid += `    ${fromId} --> ${toId}\n`;
         }
       });
     });
@@ -354,7 +361,8 @@ export class ArchitectureAnalyzer {
     mermaid += '    classDef external fill:#ffebee\n';
 
     components.forEach(component => {
-      mermaid += `    class ${component.id} ${component.type}\n`;
+      const nodeId = component.id.replace(/-/g, '_');
+      mermaid += `    class ${nodeId} ${component.type}\n`;
     });
 
     return mermaid;
@@ -448,14 +456,14 @@ export class ArchitectureAnalyzer {
     return plantuml;
   }
 
-  private static getMermaidShape(type: string): string {
+  private static getMermaidShape(type: string): [string, string] {
     switch (type) {
-      case 'frontend': return '[';
-      case 'backend': return '(';
-      case 'database': return '[(';
-      case 'service': return '{{';
-      case 'external': return '>';
-      default: return '[';
+      case 'frontend': return ['["', '"]']; // Rectangle
+      case 'backend': return ['("', '")']; // Rounded
+      case 'database': return ['["', '"]']; // Rectangle
+      case 'service': return ['["', '"]']; // Rectangle
+      case 'external': return ['["', '"]']; // Rectangle (used for fallback, but handled above)
+      default: return ['["', '"]'];
     }
   }
 

@@ -15,6 +15,9 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ results, onResul
   const [expandedEpics, setExpandedEpics] = useState<Set<number>>(new Set());
   const [expandedStories, setExpandedStories] = useState<Set<string>>(new Set());
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importError, setImportError] = useState('');
 
   const toggleEpic = (index: number) => {
     const newExpanded = new Set(expandedEpics);
@@ -90,6 +93,27 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ results, onResul
     URL.revokeObjectURL(url);
   };
 
+  const handleImportJson = () => {
+    setShowImport(true);
+    setImportText('');
+    setImportError('');
+  };
+
+  const handleImportSubmit = () => {
+    try {
+      const parsed = JSON.parse(importText);
+      if (!parsed.epics || !parsed.metadata) {
+        setImportError('Invalid JSON: missing required fields.');
+        return;
+      }
+      setImportError('');
+      setShowImport(false);
+      onResultsChange(parsed);
+    } catch (e) {
+      setImportError('Invalid JSON format.');
+    }
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'High': return 'bg-red-100 text-red-800';
@@ -144,8 +168,40 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ results, onResul
             <Download className="w-4 h-4" />
             <span>Download</span>
           </button>
+          <button
+            onClick={handleImportJson}
+            className="inline-flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <span>Import JSON</span>
+          </button>
         </div>
       </div>
+
+      {/* Import JSON Modal */}
+      {showImport && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg">
+            <h3 className="text-lg font-semibold mb-2">Import JIRA Stories JSON</h3>
+            <textarea
+              className="w-full h-40 p-2 border border-gray-300 rounded mb-2"
+              value={importText}
+              onChange={e => setImportText(e.target.value)}
+              placeholder="Paste your JSON here..."
+            />
+            {importError && <div className="text-red-600 text-sm mb-2">{importError}</div>}
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setShowImport(false)}
+                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+              >Cancel</button>
+              <button
+                onClick={handleImportSubmit}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >Import</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Epics and Stories */}
       <div className="space-y-4">

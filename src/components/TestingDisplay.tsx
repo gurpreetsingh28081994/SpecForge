@@ -6,11 +6,56 @@ interface TestingDisplayProps {
   results: TestingOutput;
 }
 
+// Helper to parse labeled fields from a scope string
+function parseScopeFields(scope: string) {
+  const regex = /(Objective|Scope|Resources|Schedule|Risks):\s*([^.-]+(?:\([^)]+\))?[^.-]*)/gi;
+  const fields: Record<string, string> = {};
+  let match;
+  while ((match = regex.exec(scope)) !== null) {
+    fields[match[1]] = match[2].trim();
+  }
+  return Object.keys(fields).length > 0 ? fields : null;
+}
+
+export function ProjectScopeBeautified({ scope }: { scope: string }) {
+  const scopeFields = parseScopeFields(scope);
+  return (
+    <div className="project-scope" style={{ marginBottom: 24 }}>
+      <h3 style={{ fontWeight: 600, fontSize: 20, marginBottom: 8 }}>Project Scope</h3>
+      {scopeFields ? (
+        <ul style={{ listStyle: "none", padding: 0 }}>
+          {Object.entries(scopeFields).map(([label, value]) => (
+            <li key={label} style={{ marginBottom: 8 }}>
+              <span style={{ fontWeight: 500 }}>{label}:</span>{" "}
+              {value.includes(",") ? (
+                <ul style={{ margin: "4px 0 0 20px" }}>
+                  {value.split(",").map((item, idx) => (
+                    <li key={idx}>{item.trim()}</li>
+                  ))}
+                </ul>
+              ) : (
+                <span>{value}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p style={{ margin: 0 }}>{scope}</p>
+      )}
+    </div>
+  );
+}
+
 export const TestingDisplay: React.FC<TestingDisplayProps> = ({ results }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'testplan' | 'testcases' | 'automation' | 'metrics'>('overview');
   const [expandedSuites, setExpandedSuites] = useState<Set<string>>(new Set());
   const [expandedTestCases, setExpandedTestCases] = useState<Set<string>>(new Set());
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalSuiteIndex, setModalSuiteIndex] = useState<number | null>(null);
+  const [modalTestCaseIndex, setModalTestCaseIndex] = useState<number | null>(null);
+  const [modalTestCase, setModalTestCase] = useState<any>(null);
+  const [localSuites, setLocalSuites] = useState(results.test_suites);
 
   const toggleSuite = (suiteName: string) => {
     const newExpanded = new Set(expandedSuites);
@@ -81,6 +126,93 @@ export const TestingDisplay: React.FC<TestingDisplayProps> = ({ results }) => {
       case 'Medium': return 'border-yellow-500 bg-yellow-50';
       case 'Low': return 'border-green-500 bg-green-50';
       default: return 'border-gray-500 bg-gray-50';
+    }
+  };
+
+  const addTestCase = (suiteIndex: number) => {
+    const newSuites = [...localSuites];
+    newSuites[suiteIndex].test_cases.push({
+      id: `tc-${Date.now()}`,
+      title: `New Test Case ${newSuites[suiteIndex].test_cases.length + 1}`,
+      description: '',
+      pre_conditions: [],
+      test_steps: [{ step_number: 1, action: 'Step 1' }],
+      expected_result: 'Expected result',
+      priority: 'Medium',
+      type: 'Functional',
+      tags: [],
+      automation_candidate: false,
+      estimated_execution_time: '1h',
+      linked_story: '',
+    });
+    setLocalSuites(newSuites);
+  };
+
+  const deleteSuite = (suiteIndex: number) => {
+    const newSuites = localSuites.filter((_, index) => index !== suiteIndex);
+    setLocalSuites(newSuites);
+  };
+
+  const exportJSON = () => {
+    downloadContent(JSON.stringify(results, null, 2), `test-plan-${new Date().toISOString().split('T')[0]}.json`);
+  };
+
+  const exportCSV = () => {
+    const csvContent = [
+      ['ID', 'Title', 'Description', 'Pre-conditions', 'Test Steps', 'Expected Result', 'Priority', 'Type', 'Tags', 'Automation Candidate', 'Estimated Execution Time', 'Linked Story'],
+      ...localSuites.flatMap(suite =>
+        suite.test_cases.map(tc => [
+          tc.id,
+          tc.title,
+          tc.description,
+          tc.pre_conditions.join('; '),
+          tc.test_steps.map(step => `${step.step_number}. ${step.action}`).join('\n'),
+          tc.expected_result,
+          tc.priority,
+          tc.type,
+          tc.tags.join(', '),
+          tc.automation_candidate ? 'Yes' : 'No',
+          tc.estimated_execution_time,
+          tc.linked_story,
+        ])
+      ),
+    ];
+    const csvString = csvContent.map(row => row.join(',')).join('\n');
+    downloadContent(csvString, `test-plan-${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
+  const exportGherkin = () => {
+    const gherkinContent = [
+      `Feature: ${results.test_plan.project_name} Test Plan`,
+      `  As a QA Engineer,`,
+      `  I need to ensure all test cases are covered,`,
+      `  So that I can deliver high-quality software.`,
+      '',
+      ...localSuites.flatMap(suite =>
+        suite.test_cases.map(tc => [
+          `Scenario: ${tc.title}`,
+          `  Given ${tc.pre_conditions.map(cond => cond.replace(/^Given /, '')).join(' and ')}`,
+          `  When ${tc.test_steps.map(step => `${step.step_number}. ${step.action}`).join(' and ')}`,
+          `  Then ${tc.expected_result}`,
+          `  And Priority is "${tc.priority}"`,
+          `  And Type is "${tc.type}"`,
+          `  And Tags are "${tc.tags.join(', ')}"`,
+          `  And Automation Candidate is "${tc.automation_candidate ? 'Yes' : 'No'}"`,
+          `  And Estimated Execution Time is "${tc.estimated_execution_time}"`,
+          `  And Linked Story is "${tc.linked_story || 'N/A'}"`,
+        ])
+      ),
+    ];
+    const gherkinString = gherkinContent.join('\n');
+    downloadContent(gherkinString, `test-plan-${new Date().toISOString().split('T')[0]}.feature`);
+  };
+
+  const saveModalTestCase = () => {
+    if (modalTestCaseIndex !== null && modalSuiteIndex !== null) {
+      const newSuites = [...localSuites];
+      newSuites[modalSuiteIndex].test_cases[modalTestCaseIndex] = modalTestCase;
+      setLocalSuites(newSuites);
+      setModalOpen(false);
     }
   };
 
@@ -311,7 +443,7 @@ export const TestingDisplay: React.FC<TestingDisplayProps> = ({ results }) => {
 
   const renderTestCases = () => (
     <div className="space-y-6">
-      {results.test_suites.map((suite, suiteIndex) => (
+      {localSuites.map((suite, suiteIndex) => (
         <div key={suiteIndex} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div 
             className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 border-b cursor-pointer hover:from-blue-100 hover:to-purple-100 transition-colors"
@@ -335,6 +467,25 @@ export const TestingDisplay: React.FC<TestingDisplayProps> = ({ results }) => {
 
           {expandedSuites.has(suite.name) && (
             <div className="p-4">
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="text-lg font-semibold text-gray-800">Test Cases</h4>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => addTestCase(suiteIndex)}
+                    className="inline-flex items-center space-x-1 bg-green-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-green-700 transition-colors"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Add Test Case</span>
+                  </button>
+                  <button
+                    onClick={() => deleteSuite(suiteIndex)}
+                    className="inline-flex items-center space-x-1 bg-red-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-red-700 transition-colors"
+                  >
+                    <AlertTriangle className="w-4 h-4" />
+                    <span>Delete Suite</span>
+                  </button>
+                </div>
+              </div>
               <div className="space-y-4">
                 {suite.test_cases.map((testCase, tcIndex) => (
                   <div key={tcIndex} className="border rounded-lg">
@@ -433,6 +584,29 @@ export const TestingDisplay: React.FC<TestingDisplayProps> = ({ results }) => {
           )}
         </div>
       ))}
+      <div className="flex justify-end space-x-2 mt-4">
+        <button
+          onClick={exportJSON}
+          className="inline-flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <FileText className="w-4 h-4" />
+          <span>Export JSON</span>
+        </button>
+        <button
+          onClick={exportCSV}
+          className="inline-flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+        >
+          <Download className="w-4 h-4" />
+          <span>Export CSV</span>
+        </button>
+        <button
+          onClick={exportGherkin}
+          className="inline-flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+        >
+          <FileText className="w-4 h-4" />
+          <span>Export Gherkin</span>
+        </button>
+      </div>
     </div>
   );
 
@@ -591,6 +765,79 @@ export const TestingDisplay: React.FC<TestingDisplayProps> = ({ results }) => {
     </div>
   );
 
+  // Modal component
+  const EditTestCaseModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl">
+        <h3 className="text-lg font-bold mb-4">Edit Test Case</h3>
+        {modalTestCase && (
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Title</label>
+              <input className="w-full border rounded px-2 py-1" value={modalTestCase.title} onChange={e => setModalTestCase({ ...modalTestCase, title: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Description</label>
+              <textarea className="w-full border rounded px-2 py-1" value={modalTestCase.description} onChange={e => setModalTestCase({ ...modalTestCase, description: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Pre-conditions (semicolon separated)</label>
+              <input className="w-full border rounded px-2 py-1" value={modalTestCase.pre_conditions.join('; ')} onChange={e => setModalTestCase({ ...modalTestCase, pre_conditions: e.target.value.split(';').map((s: string) => s.trim()).filter(Boolean) })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Test Steps (one per line)</label>
+              <textarea className="w-full border rounded px-2 py-1" value={modalTestCase.test_steps.map((s: any) => s.action).join('\n')} onChange={e => setModalTestCase({ ...modalTestCase, test_steps: e.target.value.split('\n').map((a: string, i: number) => ({ step_number: i + 1, action: a.trim() })).filter((s: any) => s.action) })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Expected Result</label>
+              <input className="w-full border rounded px-2 py-1" value={modalTestCase.expected_result} onChange={e => setModalTestCase({ ...modalTestCase, expected_result: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Priority</label>
+              <select className="w-full border rounded px-2 py-1" value={modalTestCase.priority} onChange={e => setModalTestCase({ ...modalTestCase, priority: e.target.value })}>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Type</label>
+              <select className="w-full border rounded px-2 py-1" value={modalTestCase.type} onChange={e => setModalTestCase({ ...modalTestCase, type: e.target.value })}>
+                <option value="Functional">Functional</option>
+                <option value="Integration">Integration</option>
+                <option value="Regression">Regression</option>
+                <option value="Security">Security</option>
+                <option value="Performance">Performance</option>
+                <option value="Edge Case">Edge Case</option>
+                <option value="Negative">Negative</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Tags (comma separated)</label>
+              <input className="w-full border rounded px-2 py-1" value={modalTestCase.tags.join(', ')} onChange={e => setModalTestCase({ ...modalTestCase, tags: e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean) })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Automation Candidate</label>
+              <input type="checkbox" checked={modalTestCase.automation_candidate} onChange={e => setModalTestCase({ ...modalTestCase, automation_candidate: e.target.checked })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Estimated Execution Time</label>
+              <input className="w-full border rounded px-2 py-1" value={modalTestCase.estimated_execution_time} onChange={e => setModalTestCase({ ...modalTestCase, estimated_execution_time: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Linked Story</label>
+              <input className="w-full border rounded px-2 py-1" value={modalTestCase.linked_story || ''} onChange={e => setModalTestCase({ ...modalTestCase, linked_story: e.target.value })} />
+            </div>
+          </div>
+        )}
+        <div className="flex justify-end space-x-2 mt-6">
+          <button className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" onClick={() => setModalOpen(false)}>Cancel</button>
+          <button className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700" onClick={saveModalTestCase}>Save</button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -651,6 +898,11 @@ export const TestingDisplay: React.FC<TestingDisplayProps> = ({ results }) => {
         {activeTab === 'automation' && renderAutomation()}
         {activeTab === 'metrics' && renderMetrics()}
       </div>
+
+      {/* Edit Test Case Modal */}
+      {modalOpen && modalTestCase && (
+        <EditTestCaseModal />
+      )}
     </div>
   );
 };

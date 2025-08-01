@@ -7,6 +7,16 @@ SpecForge is an enterprise development suite that helps you transform software r
 - **Architecture Analysis:** Get architecture diagrams, technology stack recommendations, and deployment strategies.
 - **QA Test Plans:** Automatically generate test plans, test cases, and automation strategies.
 
+## Environment Variables
+
+Create a `.env` file in the project root and add the following:
+
+```
+VITE_AI_AGENT_URL=http://localhost:8000/ask
+```
+
+Replace the URL with your AI agent endpoint as needed.
+
 ## Tech Stack
 - [Vite](https://vitejs.dev/) + [React](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
 - [Tailwind CSS](https://tailwindcss.com/)
