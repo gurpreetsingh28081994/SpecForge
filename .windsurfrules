@@ -1,0 +1,13 @@
+1. Keep functions small and focused. Avoid functions longer than 30 lines unless strictly necessary.
+2. Use clear, descriptive variable and method names. Avoid generic names like 'data', 'temp', 'val'.
+3. Avoid deeply nested blocks. Use early returns and helper methods instead of nested if-else or try-catch blocks beyond 2 levels.
+4. Do not modify or refactor any existing methods, classes, or logic unless explicitly asked to. Preserve current behavior at all times.
+5. Do not delete or rename any existing files, classes, or methods.
+6. Only use classes, functions, and imports that already exist in the project or are from standard/approved libraries. Do not hallucinate new APIs.
+7. All imports must correspond to real, existing libraries or modules. No fabricated packages or symbols.
+8. Break complex logic into reusable helper methods or services. Keep responsibilities clearly separated.
+9. Every new method, class, or module must be accompanied by corresponding unit or integration tests.
+10. Follow consistent coding style (indentation, spacing, naming) based on the existing codebase.
+11. Comments should be used only where the code is not self-explanatory. Avoid redundant comments.
+12. Avoid clever or overly abstract solutions. Prefer readable and maintainable code over smart shortcuts.
+ 
