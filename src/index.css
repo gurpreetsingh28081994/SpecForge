@@ -1,3 +1,37 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@keyframes gradientMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.animated-gradient-text {
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+@keyframes blobMove {
+  0%, 100% { transform: translate(-50%, -33%) scale(1); }
+  50% { transform: translate(-60%, -38%) scale(1.08); }
+}
+@keyframes blobMove2 {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-40%, -60%) scale(1.12); }
+}
+@keyframes blobMove3 {
+  0%, 100% { transform: translate(33%, 33%) scale(1); }
+  50% { transform: translate(40%, 40%) scale(1.07); }
+}
+.animate-blob-move {
+  animation: blobMove 18s ease-in-out infinite;
+}
+.animate-blob-move2 {
+  animation: blobMove2 22s ease-in-out infinite;
+}
+.animate-blob-move3 {
+  animation: blobMove3 26s ease-in-out infinite;
+}

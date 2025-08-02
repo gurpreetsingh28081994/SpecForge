@@ -1,6 +1,6 @@
-# SpecForge
+# PRISM
 
-SpecForge is an enterprise development suite that helps you transform software requirements into actionable JIRA stories, generate system architecture diagrams, and create comprehensive QA test plans.
+PRISM is an enterprise development suite that helps you transform software requirements into actionable JIRA stories, generate system architecture diagrams, and create comprehensive QA test plans.
 
 ## Features
 - **JIRA Story Generation:** Upload or paste requirements to generate JIRA epics and user stories with acceptance criteria.

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Header } from './components/Header';
 import { LandingPage } from './components/LandingPage';
 import { FileUpload } from './components/FileUpload';
@@ -13,6 +13,7 @@ import { analyzeWithAIAgent, AnalysisMode, transformJiraResponseHybrid, transfor
 import { JiraOutput } from './types/jira';
 import { ArchitectureOutput } from './types/architecture';
 import { TestingOutput } from './types/testing';
+import { FloatingChatbot } from './components/FloatingChatbot';
 
 function App() {
   const [showLandingPage, setShowLandingPage] = useState(true);
@@ -22,6 +23,9 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'text' | 'upload'>('text');
   const [analysisMode, setAnalysisMode] = useState<'jira' | 'architecture' | 'testing'>('jira');
+  const [pastedJiraText, setPastedJiraText] = useState<string | null>(null);
+  const textInputRef = useRef<{ setValue: (v: string) => void; analyze: () => void } | null>(null);
+  const jiraHeadlineRef = useRef<HTMLHeadingElement | null>(null);
 
   const MOCK_ARCHITECTURE_RESPONSE = {
     response: `## Project Overview\n- Project Type: AI Art Platform\n- Complexity Score (out of 10): 7\n- Estimated Team Size: 6-8\n- Estimated Timeline: 4-6 months\n\n## Scalability Requirements\n- Support for thousands of concurrent users\n- Scalable AI inference for art generation\n- Elastic storage for user-generated content\n- Auto-scaling backend services\n\n## System Components\n| Name | Type | Description | Technologies | Icon |\n|------|------|-------------|--------------|------|\n| Frontend Application | frontend | User interface and client-side logic | React, TypeScript, Tailwind CSS | globe |\n| Backend API | backend | Core business logic and API endpoints | Node.js, Express, TypeScript | server |\n| Primary Database | database | Main data storage | PostgreSQL | database |\n| Payment Gateway | external | Payment processing | Stripe, Razorpay | globe |\n| Notification Service | service | Email and push notifications | SendGrid, Firebase Cloud Messaging | layers |\n| Analytics Service | service | User analytics and tracking | PostHog, Google Analytics | layers |\n\n## High-Level Architecture Diagram\n\n### Mermaid.js\n\n\`\`\`mermaid\ngraph TD;\n    A[User] -->|Sign Up| B[Auth Service]\n    A -->|Sign In| B\n    A -->|Generate Art| C[AI Art Generator]\n    A -->|Share Art| D[Content Sharing]\n    A -->|Download Art| E[Download Service]\n    A -->|Access Premium Features| F[Payment Service]\n    G[Admin] -->|Moderate Content| D\n    D -->|Analytics| H[Analytics Service]\n\`\`\`\n\n### PlantUML\n\n\`\`\`plantuml\n@startuml\nactor User\nactor Admin\nUser -> AuthService: Sign Up/Sign In\nUser -> AIGenerator: Generate Art\nUser -> ContentSharing: Share Art\nUser -> DownloadService: Download Art\nUser -> PaymentService: Access Premium Features\nAdmin -> ContentSharing: Moderate Content\nContentSharing -> AnalyticsService: Provide Analytics\n@enduml\n\`\`\`\n\n## Low-Level Architecture Diagram\n\n### Mermaid.js\n\n\`\`\`mermaid\ngraph TD;\n    A[Frontend] -->|Responsive Design| B[UI Framework]\n    A -->|Dark Mode| B\n    A -->|Auth| C[Google/Firebase]\n    A -->|Payment| D[Payment Gateway]\n    E[Backend] -->|Art Generation| F[AI Model]\n    E -->|Moderation| G[Moderation Tools]\n    E -->|Database| H[Database]\n    E -->|Analytics| I[Analytics Tools]\n\`\`\`\n\n### PlantUML\n\n\`\`\`plantuml\n@startuml\npackage \"Frontend\" {\n  component UIFramework\n  component AuthService\n  component PaymentGateway\n}\n\npackage \"Backend\" {\n  component AIGenerator\n  component ModerationTools\n  component Database\n  component AnalyticsTools\n}\n\nUIFramework <- AuthService: Responsive Design, Dark Mode\nAuthService <- PaymentGateway: Payment Integration\nAIGenerator <- ModerationTools: Content Moderation\nAIGenerator <- Database: Store Art Data\nAIGenerator <- AnalyticsTools: User Engagement Analytics\n@enduml\n\`\`\`\n\n## Tech Stack Recommendations\n- Frontend: React, Tailwind CSS\n- Backend: Node.js, Express\n- Database: PostgreSQL\n- Other: Firebase Authentication, Stripe for payments, AWS S3 for storage\n\n## Deployment Strategy\n- Use Docker to containerize the application.\n- Deploy on AWS using services like EC2 for compute and RDS for database.\n- Implement CI/CD pipelines using GitHub Actions for automated deployments.\n- Utilize CloudFront for CDN to enhance speed and reliability.`
@@ -109,6 +113,24 @@ function App() {
     // This will be handled by the TextInput component
   };
 
+  // Handler for chatbot paste-to-jira
+  const handlePasteToJira = (text: string) => {
+    setShowLandingPage(false);
+    setAnalysisMode('jira');
+    setActiveTab('text');
+    setPastedJiraText(text);
+    // If ref is available, set value and trigger analyze
+    setTimeout(() => {
+      if (textInputRef.current) {
+        textInputRef.current.setValue(text);
+        textInputRef.current.analyze();
+      }
+      if (jiraHeadlineRef.current) {
+        jiraHeadlineRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {showLandingPage ? (
@@ -125,7 +147,10 @@ function App() {
           <div className="max-w-4xl mx-auto">
             {/* Introduction */}
             <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-gray-800 mb-4">
+              <h2
+                ref={analysisMode === 'jira' ? jiraHeadlineRef : undefined}
+                className="text-3xl font-bold text-gray-800 mb-4"
+              >
                 {analysisMode === 'jira'
                   ? 'Transform Requirements into JIRA Stories'
                   : analysisMode === 'architecture'
@@ -210,7 +235,12 @@ function App() {
               {/* Tab Content */}
               <div className="p-6">
                 {activeTab === 'text' ? (
-                  <TextInput onAnalyze={handleAnalyze} isLoading={isLoading} />
+                  <TextInput
+                    ref={textInputRef}
+                    onAnalyze={handleAnalyze}
+                    isLoading={isLoading}
+                    initialValue={pastedJiraText || ''}
+                  />
                 ) : (
                   <FileUpload onFileUpload={handleFileUpload} />
                 )}
@@ -370,6 +400,11 @@ function App() {
             )}
           </div>
         )}
+        {/* FloatingChatbot integration */}
+        <FloatingChatbot
+          onRequirementsRefined={handleRequirementsRefined}
+          onPasteToJira={handlePasteToJira}
+        />
       </main>
         </>
       )}

@@ -15,8 +15,8 @@ export const Header: React.FC<HeaderProps> = ({ onBackToLanding }) => {
               <FileText className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Enterprise Development Suite</h1>
-              <p className="text-blue-100 text-sm">AI-Powered JIRA Stories, Architecture & QA Testing</p>
+              <h1 className="text-2xl font-bold">PRISM</h1>
+              <p className="text-blue-100 text-sm">Planning, Requirements, Intelligence, Story Mapping</p>
             </div>
           </div>
           <div className="flex items-center space-x-4">
